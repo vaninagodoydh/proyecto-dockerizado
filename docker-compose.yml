@@ -1,0 +1,100 @@
+version: "3.9"  # optional since v1.27.0
+
+services:
+  rabbitmq3:
+    image: rabbitmq:3-management
+    extra_hosts: [ 'host.docker.internal:host-gateway' ]
+    container_name: rabbitmq3
+    networks:
+      - app-network
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+  zipkin:
+    image: openzipkin/zipkin
+    extra_hosts: [ 'host.docker.internal:host-gateway' ]
+    container_name: zipkin
+    networks:
+      - app-network
+    ports:
+      - "9411:9411"
+  serverconfig:
+    image: serverconfig
+    extra_hosts: [ 'host.docker.internal:host-gateway' ]
+    build:
+      context: ./server-config
+      dockerfile: ./Dockerfile
+    container_name: serverconfig
+    networks:
+      - app-network
+    ports:
+      - "8888:8888"
+    depends_on:
+      - zipkin
+  eurekaserver:
+    image: eurekaserver
+    extra_hosts: [ 'host.docker.internal:host-gateway' ]
+    build:
+      context: ./eureka-server
+      dockerfile: ./Dockerfile
+    container_name: eurekaserver
+    networks:
+      - app-network
+    ports:
+      - "8761:8761"
+    depends_on:
+      - zipkin
+      - serverconfig
+  movie-service:
+    image: movie-service
+    extra_hosts: [ 'host.docker.internal:host-gateway' ]
+    build:
+      context: ./movie-service
+      dockerfile: ./Dockerfile
+    container_name: movie-service
+    networks:
+      - app-network
+    ports:
+      - "8001:8001"
+    depends_on:
+      - zipkin
+      - rabbitmq3
+      - serverconfig
+      - eurekaserver
+#      - postgres
+  catalog-service:
+    image: catalog-service
+    extra_hosts: [ 'host.docker.internal:host-gateway' ]
+    build:
+      context: ./catalog-service
+      dockerfile: ./Dockerfile
+    container_name: catalog-service
+    networks:
+      - app-network
+    ports:
+      - "8002:8002"
+    depends_on:
+      - zipkin
+      - rabbitmq3
+      - serverconfig
+      - eurekaserver
+#      - mongodb
+  api-gateway:
+    image: api-gateway
+    extra_hosts: [ 'host.docker.internal:host-gateway' ]
+    build:
+      context: ./api-gateway
+      dockerfile: ./Dockerfile
+    container_name: api-gateway
+    networks:
+      - app-network
+    ports:
+      - "8080:8080"
+    depends_on:
+      - zipkin
+      - serverconfig
+      - eurekaserver
+
+networks:
+  app-network:
+    driver: bridge
